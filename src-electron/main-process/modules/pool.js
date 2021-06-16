@@ -66,6 +66,7 @@ export class Pool {
 
     init(options) {
         if(this.daemon_type == "remote") {
+            this.sendStatus(0)
             return false
         }
 
@@ -218,9 +219,9 @@ export class Pool {
     }
 
     checkHeight() {
-        let url = "https://explorer.evolutionproject.space/api/networkinfo"
+        let url = "https://explorer.evolution-network.org/api/networkinfo"
         if(this.testnet) {
-            url = "https://explorer.evolutionproject.space/api/networkinfo"
+            url = "https://explorer.evolutio-network.org/api/networkinfo"
         }
         return request(url)
     }

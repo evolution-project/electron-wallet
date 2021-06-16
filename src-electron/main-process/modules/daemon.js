@@ -51,9 +51,9 @@ export class Daemon {
     }
 
      checkRemoteHeight() {
-        let url = "https://explorer.evolutionproject.space/api/networkinfo"
+        let url = "https://explorer.evolution-network.org/api/networkinfo"
         if(this.testnet) {
-            url = "https://explorer.evolutionproject.space/api/networkinfo"
+            url = "https://testnet.evolution-network.org/api/networkinfo"
         }
         request(url).then(response => {
             try {

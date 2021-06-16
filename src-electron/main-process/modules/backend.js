@@ -322,7 +322,7 @@ export class Backend {
                   }
 
                   if (path) {
-                      const baseUrl = net_type === "testnet" ? "https://stageblocks.evolutionproject.space/" : "https://explorer.evolutionproject.space/"
+                      const baseUrl = net_type === "testnet" ? "https://testnet.evolution-network.org/" : "https://explorer.evolution-network.org/"
                       const url = `${baseUrl}/${path}/`
                       require("electron").shell.openExternal(url + params.id)
                   }

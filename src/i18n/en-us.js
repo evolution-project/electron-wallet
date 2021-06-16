@@ -141,8 +141,8 @@ export default {
             ok: "CLOSE"
         },
         transfer: {
-            title: "Transfer",
-            message: "Do you want to send the transaction?",
+            title: "Transfer Confirmation",
+            message: "Send transaction? Confirm with your password. If wallet have no password, click SEND",
             ok: "SEND"
         },
         unlockConfirm: {

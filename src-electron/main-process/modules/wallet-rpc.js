@@ -205,11 +205,11 @@ export class WalletRPC {
                 this.transfer(params.password, params.amount, params.address, params.payment_id, params.ringsize, params.priority, params.address_book)
                 break
 
-          case "prove_transaction":
+            case "prove_transaction":
                 this.proveTransaction(params.txid, params.address, params.message)
                 break
 
-          case "check_transaction":
+            case "check_transaction":
                 this.checkTransactionProof(params.signature, params.txid, params.address, params.message)
                 break
 
