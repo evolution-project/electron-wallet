@@ -1086,7 +1086,7 @@ export class WalletRPC {
                 resolve(wallet)
             } 
             catch (error) {
-                resolve(wallet)
+                reject()
             }
         })
     }
