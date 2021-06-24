@@ -3,7 +3,7 @@ name: Evolution Wallet Build
 on:
     push:
         branches:
-            - test
+            - dev-test
 
 jobs:
     build:
