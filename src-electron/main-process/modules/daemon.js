@@ -77,8 +77,8 @@ export class Daemon {
             })
         } else {
             this.rpc = new RPC()
-            let uri = `http://${options.daemon.remote_host}:${options.daemon.remote_port}/json_rpc`
-            return this.rpc.sendRPC("get_info", {}, uri)
+            let uri = `http://${options.daemons[options.app.net_type].remote_host}:${options.daemons[options.app.net_type].remote_port}/json_rpc`
+             return this.rpc.sendRPC("get_info", {}, uri)
         }
     }
     
@@ -173,11 +173,10 @@ export class Daemon {
             this.hostname = options.daemon.rpc_bind_ip
             this.port = options.daemon.rpc_bind_port
 
-
             this.daemonProcess.on("error", err => process.stderr.write(`Daemon: ${err}\n`))
             this.daemonProcess.on("close", code => process.stderr.write(`Daemon: exited with code ${code}\n`))
 
-            this.rpc = new RPC(this.protocol, options.daemon.remote_host, options.daemon.remote_port)
+            this.rpc = new RPC(this.protocol, options.daemon.rpc_bind_ip, options.daemon.rpc_bind_port)
             if (options.daemon.type !== "local_zmq") {
                 this.daemonProcess.stdout.on("data", data => process.stdout.write(`Daemon: ${data}`))
 
@@ -210,6 +209,7 @@ export class Daemon {
             }
         })
     }
+
     randomBetween (min, max) {
         return Math.floor(Math.random() * (max - min) + min)
     }
@@ -325,7 +325,7 @@ export class Daemon {
                         return resolve(new_pivot[0])
                     }
 
-                    /// Continue recursion with new pivot
+                    // Continue recursion with new pivot
                     resolve(new_pivot)
                     return
                 } else {
@@ -421,7 +421,6 @@ export class Daemon {
         // if (data)
             this.backend.send(method, data)
     }
-    
 
     quit () {
         // TODO force close after few seconds!
