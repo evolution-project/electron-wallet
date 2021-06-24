@@ -7,8 +7,9 @@
  **/
 
 
-//const axios = require('axios')
-//const https = require("https");
+// const axios = require('axios')
+// const https = require("https");
+
 import { RPC } from './rpc'
 
 export class Market {
@@ -17,9 +18,9 @@ export class Market {
         this.heartbeat_slow = null
         this.id = 0
 
-//        this.agent = new https.Agent({ keepAlive: true, maxSockets: 1 })
+        // this.agent = new https.Agent({ keepAlive: true, maxSockets: 1 })
         this.options = null
-        this.endpoint = "/api/v4/price/evox/btc"
+        this.endpoint = "/api/v3/coins/evolution/tickers"
         this.rpc = new RPC()
     }
 
@@ -31,7 +32,6 @@ export class Market {
     }
 
     handle (data) {
-        
         switch (data.method) {
         case "open_wallet":
             this.startHeartbeat()

@@ -13,6 +13,7 @@ const { fromEvent } = require("rxjs")
 const http = require("http")
 const fetch = require("node-fetch")
 
+
 export class Pool {
     constructor (backend) {
         this.backend = backend
@@ -53,7 +54,6 @@ export class Pool {
 
         ryo_utils_promise.then(core_bridge => {
             this.core_bridge = core_bridge
-
         })
 
         this.checkHeight().then(response => {
@@ -61,7 +61,6 @@ export class Pool {
         }).catch(() => {
             logger.log("warn", "Could not contact remote API")
         })
-
     }
 
     init (options) {
@@ -74,7 +73,9 @@ export class Pool {
         this.hostname = options.daemon.rpc_bind_ip
         this.port = options.daemon.rpc_bind_port
 
+
         this.rpc = new RPC(this.protocol, this.hostname, this.port)
+
 
         try {
             this.sendStatus(0)
@@ -93,16 +94,15 @@ export class Pool {
             const start = !this.active || JSON.stringify(this.config.server) !== JSON.stringify(options.pool.server)
 
             let update_work = false
-            if(!start && this.active) {
-
-                if (this.config.mining.address != options.pool.mining.address) {
+            if (!start && this.active) {
+                if (this.config.mining.address !== options.pool.mining.address) {
                     update_work = true
                 }
             }
 
             let update_vardiff = false
             if (!start && this.active) {
-                if (JSON.stringify(this.config.varDiff) != JSON.stringify(options.pool.varDiff)) {
+                if (JSON.stringify(this.config.varDiff) !== JSON.stringify(options.pool.varDiff)) {
                     update_vardiff = true
                 }
             }
@@ -121,7 +121,6 @@ export class Pool {
             this.address_abbr = `${wallet_address.substring(0, 5)}...${wallet_address.substring(wallet_address.length - 5)}`
 
             if (this.daemon_type !== "local_zmq") {
-
                 if (update_work) {
                     this.getBlock(true).catch(() => {})
                 }
@@ -137,7 +136,6 @@ export class Pool {
             if (update_vardiff) {
                 this.updateVarDiff()
             }
-
         } catch (error) {
             logger.log("error", "Failed to start pool")
             logger.log("error", error)
@@ -159,11 +157,11 @@ export class Pool {
             this.dealer.send(["", JSON.stringify(getblocktemplate)])
             this.startHeartbeat()
             this.startServer().then(() => {
-                                this.sendStatus(1)
-                            }).catch(error => {
-                                this.sendStatus(-1)
-                            })
-            }
+                this.sendStatus(1)
+            }).catch(error => {
+                this.sendStatus(-1)
+            })
+        }
     }
 
     start () {
@@ -171,7 +169,6 @@ export class Pool {
             return false
         }
         this.stop().then(() => {
-
             logger.log("info", "Starting pool")
 
             this.sendStatus(1)
@@ -204,26 +201,24 @@ export class Pool {
                             this.sendStatus(-1)
                         })
                     }).catch(error => {
-                        if(error === "Failed to parse wallet address") {
+                        if (error === "Failed to parse wallet address") {
                             clearInterval(this.intervals.startup)
                             this.sendStatus(-1)
                         }
                     })
-
                 } else {
                     if (debounce++ % 30 === 0) {
                         logger.log("info", "Wait for daemon { is_ready: %s, height: %d, target_height: %d }", [daemon_info.is_ready, daemon_info.height_without_bootstrap, target_height])
                     }
                 }
             }, 2000)
-
         })
     }
 
-    checkHeight() {
+    checkHeight () {
         let url = "https://explorer.evolution-network.org/api/networkinfo"
         if (this.testnet) {
-            url = "https://testnet.evolutio-network.org/api/networkinfo"
+            url = "https://testnet.evolution-network.org/api/networkinfo"
         }
         return fetch(url)
     }
@@ -241,7 +236,7 @@ export class Pool {
         }
 
         this.intervals.timeout = setInterval(() => {
-            for(let connection_id in this.connections) {
+            for (let connection_id in this.connections) {
                 const miner = this.connections[connection_id]
                 if (Date.now() - miner.lastHeartbeat > this.config.mining.minerTimeout * 1000) {
                     logger.log("warn", "Worker timed out %s@%s", [miner.workerName, miner.ip])
@@ -255,24 +250,23 @@ export class Pool {
             this.watchdog()
         }, 240000)
         this.watchdog()
-        if(this.daemon_type !== "local_zmq") { this.startJobRefreshInterval() }
+        if (this.daemon_type !== "local_zmq") { this.startJobRefreshInterval() }
 
         this.startRetargetInterval()
     }
 
     randomBetween (min, max) {
-        return Math.floor(Math.random() * (max - min) + min);
+        return Math.floor(Math.random() * (max - min) + min)
     }
 
     randomString () {
         var source = "abcdefghijklmnopqrstuvwxyz"
-        var target = [];
+        var target = []
         for (var i = 0; i < 20; i++) {
             target.push(source[this.randomBetween(0, source.length)])
         }
-        return target.join("");
+        return target.join("")
     }
-
 
     startZMQ (options) {
         this.dealer = zmq.socket("dealer")
@@ -282,9 +276,9 @@ export class Pool {
         logger.log("info", `Pool Dealer connected to port ${options.zmq_bind_ip}:${options.zmq_bind_port}`)
         const zmqDirector = fromEvent(this.dealer, "message")
         zmqDirector.subscribe(x => {
-                    let json = JSON.parse(x.toString())
-                    this.addBlockAndInformMiners(json)
-                })
+            let json = JSON.parse(x.toString())
+            this.addBlockAndInformMiners(json)
+        })
     }
 
     watchdog () {
@@ -323,7 +317,6 @@ export class Pool {
     }
 
     startJobRefreshInterval () {
-
         let blockRefreshInterval = 1 * 1000 // 1 second
         if (this.config.mining.enableBlockRefreshInterval) {
             if (!Number.isNaN(this.config.mining.blockRefreshInterval * 1000)) {
@@ -340,12 +333,12 @@ export class Pool {
     }
 
     startRetargetInterval () {
-        if(this.intervals.retarget) {
+        if (this.intervals.retarget) {
             clearInterval(this.intervals.retarget)
         }
         const retargetTime = this.config ? this.config.varDiff.retargetTime : 60
         this.intervals.retarget = setInterval(() => {
-            for(let connection_id in this.connections) {
+            for (let connection_id in this.connections) {
                 const miner = this.connections[connection_id]
                 if (miner.varDiff.enabled && miner.retarget()) {
                     logger.log("info", "Difficulty change { old: %d, new: %d } for %s@%s", [miner.difficulty.last, miner.difficulty.now, miner.workerName, miner.ip])
@@ -382,18 +375,18 @@ export class Pool {
                             let json = ""
                             try {
                                 json = JSON.parse(message)
-                                if(!json.id || !json.method || !json.params) {
+                                if (!json.id || !json.method || !json.params) {
                                     logger.log("warn", "Invalid stratum call from %s", [socket.remoteAddress])
                                     return
                                 }
-                            } catch(error) {
+                            } catch (error) {
                                 logger.log("warn", "Malformed stratum call from %s", [socket.remoteAddress])
                                 socket.destroy()
                                 break
                             }
                             try {
                                 this.handleStratum(json, socket)
-                            } catch(error) {
+                            } catch (error) {
                                 logger.log("error", "Error handling stratum call from %s", [socket.remoteAddress])
                                 logger.log("error", JSON.stringify(message))
                                 break
@@ -415,7 +408,7 @@ export class Pool {
                 logger.log("info", "Started server on port %d", [this.config.server.bindPort])
                 resolve()
             }).on("error", error => {
-                if(error.code === "EADDRINUSE") {
+                if (error.code === "EADDRINUSE") {
                     logger.log("warn", "Cannot bind on %s:%s - address in use", [this.config.server.bindIP, this.config.server.bindPort])
                     reject()
                 }
@@ -423,8 +416,7 @@ export class Pool {
         })
     }
 
-    handleStratum(json, socket) {
-
+    handleStratum (json, socket) {
         const reply = (error, result) => {
             if (!socket.writable) {
                 return
@@ -446,110 +438,109 @@ export class Pool {
             }
         }
 
-        switch(method) {
+        switch (method) {
+        case "login":
 
-            case "login":
+            const connection_id = uid()
+            const ip = socket.remoteAddress
+            const { login, pass, rigid } = params
 
-                const connection_id = uid()
-                const ip = socket.remoteAddress
-                const { login, pass, rigid } = params
+            let workerName = ""
 
-                let workerName = ""
-
-                if(rigid) {
-                    workerName = rigid.trim()
-                } else if(pass) {
-                    workerName = pass.trim()
-                    if(workerName.toLowerCase() === "x") {
-                        workerName = ""
-                    }
+            if (rigid) {
+                workerName = rigid.trim()
+            } else if (pass) {
+                workerName = pass.trim()
+                if (workerName.toLowerCase() === "x") {
+                    workerName = ""
                 }
-                if(workerName == "") {
-                    workerName = "Unnamed_Worker"
+            }
+            if (workerName === "") {
+                workerName = "Unnamed_Worker"
+            }
+            workerName = workerName.normalize("NFD").replace(/\s+/g, "-").replace(/[^A-Za-z0-9\-_]/gi, "")
+
+            let { enabled, startDiff, minDiff, maxDiff, fixedDiffSeparator } = this.config.varDiff
+            let difficulty = startDiff
+            let fixed = false
+            const login_parts = login.split(fixedDiffSeparator)
+
+            if (typeof enabled === "undefined") {
+                enabled = true
+            }
+            if (login_parts.length > 1) {
+                const login_diff = login_parts.pop()
+                if (/^\d+$/.test(login_diff)) {
+                    fixed = true
+                    enabled = false
+                    difficulty = Math.max(Math.min(parseInt(login_diff), maxDiff), minDiff)
                 }
-                workerName = workerName.normalize("NFD").replace(/\s+/g, "-").replace(/[^A-Za-z0-9\-\_]/gi, "")
+            }
 
-                let { enabled, startDiff, minDiff, maxDiff, fixedDiffSeparator } = this.config.varDiff
-                let difficulty = startDiff
-                let fixed = false
-                const login_parts = login.split(fixedDiffSeparator)
+            const varDiff = {
+                ...this.config.varDiff,
+                difficulty,
+                enabled,
+                fixed
+            }
 
-                if(typeof enabled == "undefined") {
-                    enabled = true
+            const newMiner = new Miner(this, connection_id, workerName, varDiff, ip, socket)
+
+            this.connections[connection_id] = newMiner
+            this.database.addWorker(workerName)
+            this.BlockTemplateParameters = this.calculateBlockTemplateParameters()
+
+            socket.workerName = workerName
+
+            logger.log("info", "Worker connected { difficulty: %d, fixed: %s } %s@%s", [difficulty, fixed, workerName, ip])
+
+            reply(null, {
+                id: connection_id,
+                job: newMiner.getJob(),
+                status: "OK"
+            })
+
+            break
+
+        case "submit":
+            const job_id = params.job_id
+            const hash = params.result
+            let nonce = params.nonce
+            let job = miner.findJob(job_id)
+
+            if (!job) {
+                return reply("Invalid job id")
+            }
+
+            if (!nonce || !noncePattern.test(nonce) || !hash) {
+                return reply("Invalid work")
+            }
+
+            nonce = nonce.toLowerCase()
+
+            if (!miner.checkJobSubmission(job, nonce)) {
+                return reply("Duplicate share")
+            }
+
+            miner.addJobSubmission(job, nonce)
+
+            const block = this.findBlock(job.height)
+
+            if (!block) {
+                return reply("Block not found")
+            }
+
+            this.processShare(job, block, nonce, hash).then(result => {
+                logger.log("info", "Accepted share { difficulty: %d, actual: %d } from %s@%s", [job.difficulty, result.diff, miner.workerName, miner.ip])
+                reply(null, { status: "OK" })
+                if (result.hash) {
+                    logger.log("success", "Block found { hash: %s, height: %d } by %s@%s", [result.hash, job.height, miner.workerName, miner.ip])
+                    this.database.recordShare(miner, job, true, result.hash, block)
+                } else {
+                    this.database.recordShare(miner, job, false)
                 }
-                if(login_parts.length > 1) {
-                    const login_diff = login_parts.pop()
-                    if(/^\d+$/.test(login_diff)) {
-                        fixed = true
-                        enabled = false
-                        difficulty = Math.max(Math.min(parseInt(login_diff), maxDiff), minDiff)
-                    }
-                }
-
-                const varDiff = {
-                    ...this.config.varDiff,
-                    difficulty,
-                    enabled,
-                    fixed
-                }
-
-                const newMiner = new Miner(this, connection_id, workerName, varDiff, ip, socket)
-
-                this.connections[connection_id] = newMiner
-                this.database.addWorker(workerName)
-                this.BlockTemplateParameters = this.calculateBlockTemplateParameters()
-
-                socket.workerName = workerName
-
-                logger.log("info", "Worker connected { difficulty: %d, fixed: %s } %s@%s", [difficulty, fixed, workerName, ip])
-
-                reply(null, {
-                    id: connection_id,
-                    job: newMiner.getJob(),
-                    status: "OK"
-                })
-
-                break
-
-            case "submit":
-                const job_id = params.job_id
-                const hash = params.result
-                let nonce = params.nonce
-                let job = miner.findJob(job_id)
-
-                if(!job) {
-                    return reply("Invalid job id")
-                }
-
-                if(!nonce || !noncePattern.test(nonce) || !hash) {
-                    return reply("Invalid work")
-                }
-
-                nonce = nonce.toLowerCase()
-
-                if(!miner.checkJobSubmission(job, nonce)) {
-                    return reply("Duplicate share")
-                }
-
-                miner.addJobSubmission(job, nonce)
-
-                const block = this.findBlock(job.height)
-
-                if(!block) {
-                    return reply("Block not found")
-                }
-
-                this.processShare(job, block, nonce, hash).then(result => {
-                    logger.log("info", "Accepted share { difficulty: %d, actual: %d } from %s@%s", [job.difficulty, result.diff, miner.workerName, miner.ip])
-                    reply(null, { status: "OK" })
-                    if (result.hash) {
-                        logger.log("success", "Block found { hash: %s, height: %d } by %s@%s", [result.hash, job.height, miner.workerName, miner.ip])
-                        this.database.recordShare(miner, job, true, result.hash, block)
-                    } else {
-                        this.database.recordShare(miner, job, false)
-                    }
-                    miner.heartbeat()
-                    miner.recordShare()
+                miner.heartbeat()
+                miner.recordShare()
             }).catch(error => {
                 logger.log("info", "Rejected share { difficulty: %d, actual: %d } from %s@%s", [job.difficulty, error.diff, miner.workerName, miner.ip])
                 logger.log("error", "%s { height: %d } from worker %s@%s", [error.message, job.height, miner.workerName, miner.ip])
@@ -557,14 +548,14 @@ export class Pool {
             })
             break
 
-            case "keepalived":
-                miner.heartbeat()
-                reply(null, { status:"KEEPALIVED" })
-                break
+        case "keepalived":
+            miner.heartbeat()
+            reply(null, { status: "KEEPALIVED" })
+            break
 
-            default:
-                reply("Invalid method")
-                break
+        default:
+            reply("Invalid method")
+            break
         }
     }
 
@@ -584,11 +575,11 @@ export class Pool {
                     logger.log("warn", template.toString("hex"))
 
                     block_blob = this.core_bridge.construct_block_blob(template.toString("hex"), Buffer.from(nonce, "hex").readUInt32LE(0))
-                } catch(error) {
+                } catch (error) {
                     return reject({ message: "Error constructing block blob", diff: hash_diff })
                 }
                 this.submitBlock(block_blob).then(data => {
-                    if(data.hasOwnProperty("error")) {
+                    if (data.hasOwnProperty("error")) {
                         return reject({ message: "Error submitting block", diff: hash_diff })
                     }
                     let block_fast_hash = "0000000000000000000000000000000000000000000000000000000000000000"
@@ -600,7 +591,7 @@ export class Pool {
                     this.getBlock().catch(() => {})
                     return resolve({ hash: block_fast_hash, diff: hash_diff })
                 })
-            } else if(hash_diff.lt(job.difficulty)) {
+            } else if (hash_diff.lt(job.difficulty)) {
                 return reject({ message: "Rejected low difficulty share", diff: hash_diff })
             } else {
                 return resolve({ hash: false, diff: hash_diff })
@@ -611,7 +602,7 @@ export class Pool {
     updateVarDiff () {
         for (let connection_id in this.connections) {
             const miner = this.connections[connection_id]
-            if(!miner.varDiff.fixed) {
+            if (!miner.varDiff.fixed) {
                 miner.updateVarDiff({
                     ...miner.varDiff,
                     ...this.config.varDiff
@@ -627,8 +618,8 @@ export class Pool {
     }
 
     calculateBlockTemplateParameters () {
-        return  {wallet_address: this.config.mining.address,
-                reserve_size: 1 }
+        return { wallet_address: this.config.mining.address,
+            reserve_size: 1 }
     }
 
     addBlockAndInformMiners (data, force = false) {
@@ -640,7 +631,6 @@ export class Pool {
             const block = data.result
 
             if (this.blocks == null || this.blocks.current == null || this.blocks.current.height < block.height || force) {
-
                 logger.log("info", "New block to mine { address: %s, height: %d, difficulty: %d, uniform: %s }", [this.address_abbr, block.height, block.difficulty, true])
                 this.sendStatus(2)
                 this.blocks.current = new Block(this, block, false)
@@ -656,8 +646,7 @@ export class Pool {
                     miner.pushJob(force)
                 }
             }
-        }
-        catch (error) {}
+        } catch (error) {}
         return null
     }
 
@@ -666,7 +655,6 @@ export class Pool {
             const getBlockTemplateData = await this.rpc.sendRPC("get_block_template", this.BlockTemplateParameters)
             const result = this.addBlockAndInformMiners(getBlockTemplateData, force)
             !result ? resolve() : reject(result)
-            
         })
     }
 
@@ -676,7 +664,7 @@ export class Pool {
 
     sendStatus (status) {
         // -1: error, 0: disabled, 1: waiting, 2: enabled
-        this.active = status == 2
+        this.active = status === 2
         this.sendGateway("set_pool_data", { status })
     }
     sendGateway (method, data) {
@@ -739,7 +727,7 @@ export class Pool {
                     this.agent.destroy()
                     this.agent = null
                 }
-                if(this.database) {
+                if (this.database) {
                     logger.log("warn", "Stopping database")
                     this.database.stop()
                     resolve()

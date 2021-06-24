@@ -34,7 +34,7 @@
                         <div class="infoBox">
                             <div class="infoBoxContent">
                                 <div class="text"><span>Hashrate</span></div>
-                                <div class="value"><span>{{ pool.stats.h ? pool.stat.h.hashrate_5min : 0 | hashrate }}</span></div>
+                                <div class="value"><span>{{ pool.stats.h ? pool.stats.h.hashrate_5min : 0  | hashrate }}</span></div>
                             </div>
                         </div>
                     </div>
@@ -703,13 +703,10 @@ export default {
         hashrate_data: function() {
             let labels = []
             let data = {}
-
             Object.keys(this.pool.workers[0].hashrate_graph).map(key => {
                 labels.push(+key)
             })
-
             data = {...this.pool.workers[0].hashrate_graph}
-
             const selected_workers = this.selected_workers.map(worker => worker.miner)
             for(let i = 1; i < this.pool.workers.length; i++) {
                 const worker = this.pool.workers[i]
@@ -721,10 +718,8 @@ export default {
                     })
                 }
             }
-
             data = Object.values(data)
             data.pop()
-
             return {
                 labels,
                 datasets: [
@@ -738,13 +733,11 @@ export default {
             let options = []
             for(let i = 0; i < this.wallets.list.length; i++) {
                 const wallet = this.wallets.list[i]
-
                 let instance = new this.Identicon({
                     propsData: { address: wallet.address }
                 })
                 const identicon = instance.img
                 instance.$destroy()
-
                 options.push({
                     label: wallet.name,
                     sublabel: wallet.address,
@@ -788,7 +781,6 @@ export default {
     },
     mounted: function () {
         this.settings = this.config.pool
-
         let mining_address_found = false
         for(let i = 0; i < this.wallets.list.length; i++) {
             const wallet = this.wallets.list[i]
@@ -799,7 +791,6 @@ export default {
         if(!mining_address_found && this.wallets.list.length) {
             this.settings.mining.address = this.wallets.list[0].address
         }
-
         this.currentSettings = JSON.stringify(this.settings)
         this.enableStats = !this.settings.mining.uniform
         this.selected_workers = this.pool.workers.slice(1)
@@ -818,7 +809,6 @@ export default {
     methods: {
         save() {
             this.$v.settings.$touch()
-
             if(this.settings.mining.address == "") {
                 this.$q.notify({
                     type: "negative",
@@ -827,8 +817,6 @@ export default {
                 })
                 return
             }
-
-
             if(this.$v.settings.varDiff.$error) {
                 this.modals.vardiff = true
                 this.$q.notify({
@@ -847,7 +835,6 @@ export default {
                 })
                 return
             }
-
             if(this.$v.settings.$error) {
                 this.$q.notify({
                     type: "negative",
@@ -856,9 +843,7 @@ export default {
                 })
                 return
             }
-
             this.settings.mining.uniform = !this.enableStats
-
             if(this.currentSettings == JSON.stringify(this.settings)) {
                 this.$q.notify({
                     type: "warning",
@@ -867,13 +852,11 @@ export default {
                 })
                 return
             }
-
             this.$q.notify({
                 type: "positive",
                 timeout: 1000,
                 message: "Settings saved"
             })
-
             this.currentSettings = JSON.stringify(this.settings)
             this.$gateway.send("core", "save_pool_config", this.settings)
         },
@@ -1114,7 +1097,6 @@ export default {
             return Math.round(val * 100) + "%"
         },
         commas: (num) => {
-/*            return num.toLocaleString()*/
             if (!!num)
                 return num.toLocaleString()
             return num
@@ -1135,15 +1117,12 @@ export default {
 onload = () => {
   const webview = document.querySelector('webview')
   const indicator = document.querySelector('.indicator')
-
   const loadstart = () => {
     indicator.innerText = 'loading...'
   }
-
   const loadstop = () => {
     indicator.innerText = ''
   }
-
   webview.addEventListener('did-start-loading', loadstart)
   webview.addEventListener('did-stop-loading', loadstop)
 }
@@ -1164,7 +1143,6 @@ onload = () => {
     table {
         table-layout: fixed;
     }
-
     .luckGood, .blockReward {
         /*color: #17a600;*/
         color: #008000;

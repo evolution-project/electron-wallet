@@ -2,7 +2,6 @@ import SQL from "better-sqlite3"
 import { join } from "path"
 import { logger } from "./utils"
 
-
 export class Database {
     constructor (pool, options) {
         this.pool = pool
@@ -17,7 +16,6 @@ export class Database {
     }
 
     start () {
-
         this.db = new SQL(this.sqlitePath)
 
         this.getTables()
@@ -52,13 +50,11 @@ export class Database {
             hashrate_avg_clean: this.db.prepare("DELETE FROM hashrate WHERE time < :time")
         }
 
-
         this.vacuum()
 
         setInterval(() => {
             this.vacuum()
         }, this.vacuum_interval)
-
     }
 
     stop () {
@@ -78,7 +74,7 @@ export class Database {
         try {
             this.db.exec("VACUUM")
             logger.log("info", "Success vacuuming database")
-        } catch(error) {
+        } catch (error) {
             logger.log("error", "Error vacuuming database")
         }
     }
@@ -122,8 +118,8 @@ export class Database {
         for (let worker of Object.keys(hashrates)) {
             workers[worker].hashrate_graph = hashrates[worker].hashrate_graph
             h.hashrate_5min += workers[worker].hashrate_5min = hashrates[worker].hashrate_5min
-            h.hashrate_1hr  += workers[worker].hashrate_1hr  = hashrates[worker].hashrate_1hr
-            h.hashrate_6hr  += workers[worker].hashrate_6hr  = hashrates[worker].hashrate_6hr
+            h.hashrate_1hr += workers[worker].hashrate_1hr = hashrates[worker].hashrate_1hr
+            h.hashrate_6hr += workers[worker].hashrate_6hr = hashrates[worker].hashrate_6hr
             h.hashrate_24hr += workers[worker].hashrate_24hr = hashrates[worker].hashrate_24hr
         }
 
@@ -175,7 +171,6 @@ export class Database {
         }
 
         return this.stats
-
     }
 
     unlockBlocks () {
@@ -213,7 +208,7 @@ export class Database {
 
     getWorkers () {
         let workers = {}
-        for(const worker of this.stmt.workers.all()) {
+        for (const worker of this.stmt.workers.all()) {
             workers[worker.miner] = worker
         }
         return workers
@@ -267,7 +262,7 @@ export class Database {
         return hashrates
     }
 
-    calcHashrate(n_time = 300, end_time = false) {
+    calcHashrate (n_time = 300, end_time = false) {
         if (!end_time) {
             end_time = Date.now()
         }
@@ -343,6 +338,5 @@ export class Database {
                 status: 0
             })
         }
-
     }
 }

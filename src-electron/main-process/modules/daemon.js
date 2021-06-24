@@ -1,5 +1,4 @@
 import child_process from "child_process"
-
 import { RPC } from "./rpc"
 const fs = require("fs")
 const path = require("path")
@@ -7,7 +6,7 @@ const zmq = require("zeromq")
 const { fromEvent } = require("rxjs")
 
 export class Daemon {
-    constructor(backend) {
+    constructor (backend) {
         this.backend = backend
         this.heartbeat = null
         this.heartbeat_slow = null
@@ -17,8 +16,7 @@ export class Daemon {
 
         this.daemon_info = {}
         this.dealer = {}
-
-        this.zmq_enabled = false
+        this.zmq_enabled = false    
     }
 
 
@@ -88,11 +86,14 @@ export class Daemon {
     start (options) {
         if (options.daemon.type === "remote") {
             this.local = false
+            
             // save this info for later RPC calls
             this.protocol = "http://"
-            this.hostname = options.daemon.remote_host
-            this.port = options.daemon.remote_port
-            this.rpc = new RPC(this.protocol, options.daemon.remote_host, options.daemon.remote_port)
+            // this.hostname = options.daemon.remote_host
+            // this.port = options.daemon.remote_port
+            this.hostname = options.daemons[options.app.net_type].remote_host
+            this.port = options.daemons[options.app.net_type].remote_port
+            this.rpc = new RPC(this.protocol, this.hostname, this.port)
 
             return new Promise(async(resolve, reject) => {
                 const getInfoData = await this.rpc.sendRPC("get_info")
@@ -106,6 +107,7 @@ export class Daemon {
         }
         return new Promise((resolve, reject) => {
             this.local = true
+
             const args = [
                 "--data-dir", options.app.data_dir,
                 "--out-peers", options.daemon.out_peers,
@@ -116,13 +118,16 @@ export class Daemon {
                 "--rpc-bind-ip", options.daemon.rpc_bind_ip,
                 "--rpc-bind-port", options.daemon.rpc_bind_port
             ]
+
             if (options.daemon.type === "local_zmq") {
                 args.push("--zmq-enabled",
                     "--zmq-max_clients", 5,
                     "--zmq-bind-port",
                     options.daemon.zmq_bind_port)
             }
+
             this.zmq_enabled = options.daemon.type === "local_zmq"
+
             if (options.daemon.enhanced_ip_privacy) {
                 args.push(
                     "--p2p-bind-ip", "127.0.0.1",
@@ -191,7 +196,6 @@ export class Daemon {
                             clearInterval(intrvl)
                             reject(error)
                         }
-
                     }
                 }, 2000)
             } else {
@@ -209,6 +213,7 @@ export class Daemon {
     randomBetween (min, max) {
         return Math.floor(Math.random() * (max - min) + min)
     }
+
     randomString () {
         var source = "abcdefghijklmnopqrstuvwxyz"
         var target = []
@@ -217,6 +222,7 @@ export class Daemon {
         }
         return target.join("")
     }
+
     startZMQ (options) {
         this.dealer = zmq.socket("dealer")
         this.dealer.identity = this.randomString()
@@ -233,9 +239,11 @@ export class Daemon {
             if (json.result.info.height === json.result.info.target_height && json.result.info.height >= this.remote_height) {
                 json.result.info.isDaemonSyncd = true
             }
+
             this.sendGateway("set_daemon_data", daemon_info)
         })
     }
+
     handle (data) {
         let params = data.data
         switch (data.method) {
@@ -256,8 +264,7 @@ export class Daemon {
     }
 
     async banPeer (host, seconds = 3600) {
-
-        if(!seconds) { seconds=3600 }
+        if (!seconds) { seconds = 3600 }
 
         let params = {
             bans: [{
@@ -278,13 +285,10 @@ export class Daemon {
 
         // Send updated peer and ban list
         this.heartbeatSlowAction()
-
     }
 
-    timestampToHeight( timestamp, pivot = null, recursion_limit = null) {
-
+    timestampToHeight (timestamp, pivot = null, recursion_limit = null) {
         return new Promise(async(resolve, reject) => {
-
             if (timestamp > 999999999999) {
                 // We have got a JS ms timestamp, convert
                 timestamp = Math.floor(timestamp / 1000)
@@ -300,7 +304,7 @@ export class Daemon {
                 return resolve(0)
             }
 
-            if(recursion_limit > 10) {
+            if (recursion_limit > 10) {
                 return resolve(pivot[0])
             }
 
@@ -311,16 +315,17 @@ export class Daemon {
                     if (getLastBlockHeaderData.hasOwnProperty("error") || !getLastBlockHeaderData.hasOwnProperty("result")) {
                         return reject()
                     }
+
                     let new_pivot = [data.result.block_header.height, data.result.block_header.timestamp]
 
-                // If we are within an hour that is good enough
+                    // If we are within an hour that is good enough
                     // If for some reason there is a > 1h gap between blocks
                     // the recursion limit will take care of infinite loop
                     if (Math.abs(timestamp - new_pivot[1]) < 3600) {
                         return resolve(new_pivot[0])
                     }
 
-                    // Continue recursion with new pivot
+                    /// Continue recursion with new pivot
                     resolve(new_pivot)
                     return
                 } else {
@@ -358,30 +363,32 @@ export class Daemon {
     }
 
     async heartbeatAction () {
-        let data = []
-
-        // No difference between local and remote heartbeat action for now
-        if (this.local) {
-
-            data = [
-                await this.rpc.sendRPC("get_info")
-            ]
-        } else {
-            data = [
-                await this.rpc.sendRPC("get_info")
-            ]
-        }
-
-        let daemon_info = {
-        }
-        for (let n of data) {
-            if (n === undefined || !n.hasOwnProperty("result") || n.result === undefined) { continue }
-            if (n.method === "get_info") {
-                daemon_info.info = n.result
-                this.daemon_info = n.result
+        try {
+            let data = []
+            
+            // No difference between local and remote heartbeat action for now
+            if (this.local) {
+                data = [
+                    await this.rpc.sendRPC("get_info")
+                ]
+            } else {
+                data = [
+                    await this.rpc.sendRPC("get_info")
+                ]
             }
-        }
+           
+            let daemon_info = {}
+
+            for (let n of data) {
+                if (n === undefined || !n.hasOwnProperty("result") || n.result === undefined) { continue }
+                if (n.method === "get_info") {
+                    daemon_info.info = n.result
+                    this.daemon_info = n.result
+                }
+            }
             this.sendGateway("set_daemon_data", daemon_info)
+        } catch (error) {
+        }
     }
 
     async heartbeatSlowAction (daemon_info = {}) {
@@ -395,7 +402,7 @@ export class Daemon {
             data = []
         }
 
-        if (data.length === 0) return
+        if (!data || data.length === 0) return
 
         for (let n of data) {
             if (n === undefined || !n.hasOwnProperty("result") || n.result === undefined) { continue }
@@ -411,9 +418,9 @@ export class Daemon {
     }
 
     sendGateway (method, data) {
-        this.backend.send(method, data)
+        // if (data)
+            this.backend.send(method, data)
     }
-
     
 
     quit () {
@@ -428,7 +435,6 @@ export class Daemon {
         return new Promise((resolve, reject) => {
             if (this.daemonProcess) {
                 this.daemonProcess.on("close", code => {
-
                     resolve()
                 })
                 this.daemonProcess.kill()

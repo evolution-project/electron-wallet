@@ -14,13 +14,13 @@ Big Thanks to ArQmA team for support.
 
 #### Commands
 ```
-nvm use 11.9.0
+nvm use 12.20.2 
 npm install -g quasar-cli
 git clone https://github.com/evolution-project/evolution-electron-wallet
 cd evolution-electron-wallet
 cp path_to_evolution_binaries/evolutiond bin/
 cp path_to_evolution_binaries/evolution-wallet-rpc bin/
-npm install
+npm install --force
 ```
 
 For dev:
@@ -38,6 +38,10 @@ npm run build
 ### Credits
 
 ArqTras https://github.com/arqma/arqma-electron-wallet
+
+Muslesonvacation
+
+----------------------------------------------------------------
 
 mosu-forge https://github.com/ryo-currency/ryo-wallet
 

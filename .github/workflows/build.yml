@@ -1,9 +1,9 @@
-name: Evolution Electron Wallet Build and PUB
+name: Evolution Wallet Build
 
 on:
     push:
         branches:
-            - master
+            - test
 
 jobs:
     build:
@@ -11,7 +11,7 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                os: [windows-2016, ubuntu-latest]
+                os: [windows-2016, ubuntu-latest, macos-latest]
 
         steps:
             - name: Checkout git repo
@@ -20,7 +20,7 @@ jobs:
             - name: Install node
               uses: actions/setup-node@v1
               with:
-                node-version: "11.9.0"
+                node-version: "12.20.2"
 
             - name: Install dependencies
               run: npm install -f
@@ -55,6 +55,17 @@ jobs:
               run: npm run build
               env:
                 GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Publish mac binaries
+              if: runner.os == 'macOS'
+              run: npm run build
+              env:
+                GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
+                CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+                ELECTRON_WALLET_APPLE_ID: ${{ secrets.ELECTRON_WALLET_APPLE_ID }}
+                ELECTRON_WALLET_PASSWORD: ${{ secrets.ELECTRON_WALLET_PASSWORD }}
+                ELECTRON_WALLET_TEAM_ID: ${{ secrets.ELECTRON_WALLET_TEAM_ID }}
 
             - name: Remove un-needed artifacts
               run: rm -r -- ./*/

@@ -1,20 +1,17 @@
-import { Daemon } from "./daemon";
-import { WalletRPC } from "./wallet-rpc";
-import { Market } from "./market";
-import { Pool } from "./pool";
-import { ipcMain, dialog } from "electron";
 
+import { Daemon } from "./daemon"
+import { WalletRPC } from "./wallet-rpc"
+import { Market } from "./market"
+import { Pool } from "./pool"
+import { ipcMain, dialog } from "electron"
 
-// import { spawn } from 'child_process'
-
-const os = require("os");
-const fs = require("fs");
-const path = require("path");
-const objectAssignDeep = require("object-assign-deep");
-
+const os = require("os")
+const fs = require("fs")
+const path = require("path")
+const objectAssignDeep = require("object-assign-deep")
 
 export class Backend {
-    constructor(mainWindow) {
+    constructor (mainWindow) {
         this.mainWindow = mainWindow
         this.daemon = null
         this.walletd = null
@@ -174,7 +171,7 @@ export class Backend {
                     hostname: "api.coingecko.com",
                     port: 443,
                     coin: "evolution",
-                    endpoint: "/api/v3/coins/evox/tickers"
+                    endpoint: "/api/v3/coins/evolution/tickers"
                 }
             },
 
@@ -194,7 +191,7 @@ export class Backend {
     }
 
 
-    send(event, data={}) {
+    send (event, data = {}) {
         let message = {
             event,
             data
@@ -202,102 +199,101 @@ export class Backend {
 
         if (this.config_data.pool.server.enabled) {
             if (this.config_data.daemon.type === "local_zmq") {
-                if(event === "set_daemon_data") {
-                    if(data.info && data.info.hasOwnProperty("isDaemonSyncd") && data.info.isDaemonSyncd) {
-                        this.pool.startWithZmq()
+                if (event === "set_daemon_data") {
+                    if (data.info && data.info.hasOwnProperty("isDaemonSyncd") && data.info.isDaemonSyncd) {
+                        if (this.pool)
+                            this.pool.startWithZmq()
                     }
                 }
-             }
-         }
+            }
+        }
         this.mainWindow.webContents.send("event", message)
     }
 
-
-    receive(data) {
-
+    receive (data) {
         // route incoming request to either the daemon, wallet, or here
         switch (data.module) {
-            case "core":
-                this.handle(data)
-                break
-            case "daemon":
-                if (this.daemon) {
-                    this.daemon.handle(data)
-                }
-                break;
-            case "wallet":
-                if (this.walletd) {
-                    this.walletd.handle(data)
-                }
-                if (this.market) {
-                    this.market.handle(data)
-                }
-                break
-          }
+        case "core":
+            this.handle(data)
+            break
+        case "daemon":
+            if (this.daemon) {
+                this.daemon.handle(data)
+            }
+            break
+        case "wallet":
+            if (this.walletd) {
+                this.walletd.handle(data)
+            }
+            if (this.market) {
+                this.market.handle(data)
+            }
+            break
         }
+    }
 
     handle (data) {
         let params = data.data
         switch (data.method) {
-          case "set_language":
+        case "set_language":
             this.send("set_language", { lang: params.lang })
             break
 
-            case "quick_save_config":
-                // save only partial config settings
-                Object.keys(params).map(key => {
-                    this.config_data[key] = Object.assign(this.config_data[key], params[key])
+        case "quick_save_config":
+            // save only partial config settings
+            Object.keys(params).map(key => {
+                this.config_data[key] = Object.assign(this.config_data[key], params[key])
+            })
+            fs.writeFile(this.config_file, JSON.stringify(this.config_data, null, 4), "utf8", () => {
+                this.send("set_app_data", {
+                    config: params,
+                    pending_config: params
                 })
-                fs.writeFile(this.config_file, JSON.stringify(this.config_data, null, 4), 'utf8', () => {
+            })
+            break
+
+        case "save_config":
+            // check if config has changed
+            let config_changed = false
+            Object.keys(this.config_data).map(i => {
+                if (i == "appearance" || i === "pool") return
+                Object.keys(this.config_data[i]).map(j => {
+                    if (this.config_data[i][j] !== params[i][j]) { config_changed = true }
+                })
+            })
+        case "save_config_init":
+            delete params.pool
+            Object.keys(params).map(key => {
+                this.config_data[key] = Object.assign(this.config_data[key], params[key])
+            })
+            fs.writeFile(this.config_file, JSON.stringify(this.config_data, null, 4), "utf8", () => {
+                if (data.method == "save_config_init") {
+                    this.startup()
+                } else {
                     this.send("set_app_data", {
-                        config: params,
-                        pending_config: params
+                        config: this.config_data,
+                        pending_config: this.config_data
                     })
-                })
-                break
-
-            case "save_config":
-                // check if config has changed
-                let config_changed = false
-                Object.keys(this.config_data).map(i => {
-                    if(i == "appearance" || i == "pool") return
-                    Object.keys(this.config_data[i]).map(j => {
-                        if(this.config_data[i][j] !== params[i][j]) { config_changed = true }
-                    })
-                })
-            case "save_config_init":
-                delete params.pool
-                Object.keys(params).map(key => {
-                    this.config_data[key] = Object.assign(this.config_data[key], params[key])
-                });
-                fs.writeFile(this.config_file, JSON.stringify(this.config_data, null, 4), 'utf8', () => {
-
-                    if(data.method == "save_config_init") {
-                        this.startup();
-                    } else {
-                        this.send("set_app_data", {
-                            config: this.config_data,
-                            pending_config: this.config_data,
-                        })
-                        if(config_changed) {
-                            this.send("settings_changed_reboot")
-                        }
+                    if (config_changed) {
+                        this.send("settings_changed_reboot")
                     }
-                })
-                break
+                }
+            })
+            break
 
-            case "save_pool_config":
-                const originalServerState = this.config_data.pool.server.enabled
-                Object.keys(params).map(key => {
-                    this.config_data.pool[key] = Object.assign(this.config_data.pool[key], params[key])
+        case "save_pool_config":
+            const originalServerState = this.config_data.pool.server.enabled
+            Object.keys(params).map(key => {
+                this.config_data.pool[key] = Object.assign(this.config_data.pool[key], params[key])
+            })
+            fs.writeFile(this.config_file, JSON.stringify(this.config_data, null, 4), "utf8", () => {
+                this.send("set_app_data", {
+                    config: this.config_data
                 })
-                fs.writeFile(this.config_file, JSON.stringify(this.config_data, null, 4), 'utf8', () => {
-                    this.send("set_app_data", {
-                        config: this.config_data
-                    })
 
+                if (this.pool) {
                     this.pool.init(this.config_data)
-                    if(!originalServerState) {
+                    if (!originalServerState) {
                         if (this.config_data.pool.server.enabled && this.config_data.daemon.type === "local_zmq") {
                             this.pool.startWithZmq()
                         }
@@ -306,8 +302,9 @@ export class Backend {
                             this.pool.stop()
                         }
                     }
-                })
-                break
+                }
+            })
+            break
 
                 case "open_explorer":
                   const { net_type } = this.config_data.app
@@ -326,192 +323,183 @@ export class Backend {
                   }
                   break
 
-            case "open_url":
-                require("electron").shell.openExternal(params.url)
-                break
-
-            case "save_png":
-                let filename = dialog.showSaveDialog(this.mainWindow, {
-                    title: "Save "+params.type,
-                    filters: [{name: "PNG", extensions:["png"]}],
-                    defaultPath: os.homedir()
-                })
-                if(filename) {
-                    let base64Data = params.img.replace(/^data:image\/png;base64,/,"")
-                    let binaryData = new Buffer(base64Data, 'base64').toString("binary")
-                    fs.writeFile(filename, binaryData, "binary", (err) => {
-                        if(err)
-                            this.send("show_notification", {type: "negative", message: "Error saving "+params.type, timeout: 2000})
-                        else
-                            this.send("show_notification", {message: params.type+" saved to "+filename, timeout: 2000})
+                  case "open_url":
+                    require("electron").shell.openExternal(params.url)
+                    break
+        
+                case "save_png":
+                    let filename = dialog.showSaveDialog(this.mainWindow, {
+                        title: "Save " + params.type,
+                        filters: [{ name: "PNG", extensions: ["png"] }],
+                        defaultPath: os.homedir()
                     })
-                }
-                break
-
-            default:
-        }
-    }
-
-    startup() {
-        this.send("initialize")
-        fs.readFile(this.config_file, "utf8", (err, data) => {
-            if (err) {
-                this.send("set_app_data", {
-                    status: {
-                        code: -1 // Config not found
-                    },
-                    config: this.config_data,
-                    pending_config: this.config_data,
-                    remotes: this.remotes,
-                    defaults: this.defaults
-                })
-                return
-            }
-
-            let disk_config_data = {}
-            try {
-                disk_config_data = JSON.parse(data)
-            } catch(e) {
-            }
-
-            // semi-shallow object merge
-            Object.keys(disk_config_data).map(key => {
-                if(!this.config_data.hasOwnProperty(key)) {this.config_data[key] = {} }
-                this.config_data[key] = Object.assign(this.config_data[key], disk_config_data[key])
-            })
-
-            // If not Windows or Mac OS, and minimize to tray preference not set, force to false
-            // Else if is Windows or Mac OS, and minimize to tray preference not set, prevent minimize
-            if(this.config_data.preference.minimize_to_tray === null) {
-                if(os.platform() !== "win32" && os.platform() !== "darwin") {
-                    this.config_data.preference.minimize_to_tray = false
-                } else {
-                    this.mainWindow.setMinimizable(false)
-                }
-            }
-
-            // here we may want to check if config data is valid, if not also send code -1
-            // i.e. check ports are integers and > 1024, check that data dir path exists, etc
-
-            // Filter out http:// from remote_host (remote daemon address)
-            if(this.config_data.daemon.remote_host.indexOf("//") !== -1) {
-                let remote_host = this.config_data.daemon.remote_host
-                remote_host = this.config_data.daemon.remote_host.split("//")
-                remote_host.shift()
-                remote_host = remote_host.join("//")
-                this.config_data.daemon.remote_host = remote_host
-            }
-
-            // save config file back to file, so updated options are stored on disk
-            fs.writeFileSync(this.config_file, JSON.stringify(this.config_data, null, 4), "utf8");
-
-
-            // get network interfaces for UI
-            const interfaces = os.networkInterfaces()
-            let network_interfaces = [{
-                value: "0.0.0.0",
-                label: "All interfaces - 0.0.0.0"
-            }]
-            for(let k in interfaces) {
-                for(let k2 in interfaces[k]) {
-                    const address = interfaces[k][k2]
-                    if(address.family === "IPv4" && address.internal) {
-                        network_interfaces.push({
-                            value: address.address,
-                            label: `Local machine only - ${address.address}`
-                        })
-                    } else if(address.family === "IPv4" && !address.internal) {
-                        network_interfaces.push({
-                            value: address.address,
-                            label: `Local network only - ${address.address}`
+                    if (filename) {
+                        let base64Data = params.img.replace(/^data:image\/png;base64,/, "")
+                        let binaryData = Buffer.from(base64Data).toString("binary")
+                        fs.writeFile(filename, binaryData, "binary", (err) => {
+                            if (err) { this.send("show_notification", { type: "negative", message: "Error saving " + params.type, timeout: 2000 }) } else { this.send("show_notification", { message: params.type + " saved to " + filename, timeout: 2000 }) }
                         })
                     }
+                    break
+        
+                default:
                 }
             }
-
-
-            this.send("set_app_data", {
-                config: this.config_data,
-                pending_config: this.config_data,
-                network_interfaces: network_interfaces,
-                remotes: [...this.remotes]
-            })
-
-            // Check to see if data dir exists, if not it may have been on network drive
-            // if not exist, send back to config screen with message so user can select
-            // new location
-            if (!fs.existsSync(this.config_data.app.data_dir)) {
-                this.send("show_notification", {type: "negative", message: "Error: data storge path not found", timeout: 2000})
-                this.send("set_app_data", {
-                    status: {
-                        code: -1 // Return to config screen
+        
+            startup () {
+                this.send("initialize")
+                fs.readFile(this.config_file, "utf8", (err, data) => {
+                    if (err) {
+                        this.send("set_app_data", {
+                            status: {
+                                code: -1 // Config not found
+                            },
+                            config: this.config_data,
+                            pending_config: this.config_data,
+                            remotes: this.remotes,
+                            defaults: this.defaults
+                        })
+                        return
                     }
-                })
-                return
-            }
-
-            let lmdb_dir = path.join(this.config_data.app.data_dir, "lmdb02")
-            let log_dir = path.join(this.config_data.app.data_dir, "logs")
-            let wallet_dir = path.join(this.config_data.app.data_dir, "wallets")
-            let gui_dir = path.join(this.config_data.app.data_dir, "gui")
-
-            if(this.config_data.app.testnet) {
-
-                let testnet_dir = path.join(this.config_data.app.data_dir, "testnet")
-                if (!fs.existsSync(testnet_dir)) { fs.mkdirSync(testnet_dir) }
-
-                lmdb_dir = path.join(testnet_dir, "lmdb02")
-                log_dir = path.join(testnet_dir, "logs")
-                wallet_dir = path.join(testnet_dir, "wallets")
-                gui_dir = path.join(testnet_dir, "gui")
-
-            }
-
-            if (!fs.existsSync(lmdb_dir)) { fs.mkdirSync(lmdb_dir) }
-            if (!fs.existsSync(log_dir)) { fs.mkdirSync(log_dir) }
-            if (!fs.existsSync(wallet_dir)) { fs.mkdirSync(wallet_dir) }
-            if (!fs.existsSync(gui_dir)) { fs.mkdirSync(gui_dir) }
-
-            // Check permissions
-            try {
-                fs.accessSync(this.config_dir, fs.constants.R_OK | fs.constants.W_OK)
-                fs.accessSync(path.join(this.config_dir, "gui"), fs.constants.R_OK | fs.constants.W_OK)
-                fs.accessSync(this.config_file, fs.constants.R_OK | fs.constants.W_OK)
-                fs.accessSync(lmdb_dir, fs.constants.R_OK | fs.constants.W_OK)
-                fs.accessSync(log_dir, fs.constants.R_OK | fs.constants.W_OK)
-                fs.accessSync(wallet_dir, fs.constants.R_OK | fs.constants.W_OK)
-            } catch (err) {
-                this.send("show_notification", {type: "negative", message: "Error: data storge path not writable", timeout: 2000})
-                this.send("set_app_data", {
-                    status: {
-                        code: -1 // Return to config screen
+        
+                    let disk_config_data = {}
+                    try {
+                        disk_config_data = JSON.parse(data)
+                    } catch (e) {
                     }
-                })
-                return
-            }
-            const { net_type } = this.config_data.app
-
-            this.daemon = new Daemon(this)
-            this.walletd = new WalletRPC(this)
-            this.pool = new Pool(this)
-            this.market = new Market(this)
-
-            this.send("set_app_data", {
-                status: {
-                    code: 3 // Starting daemon
-                }
-            })
-
-            this.daemon.checkVersion().then((version) => {
-
-                if(version) {
+        
+                    // semi-shallow object merge
+                    Object.keys(disk_config_data).map(key => {
+                        if (!this.config_data.hasOwnProperty(key)) { this.config_data[key] = {} }
+                        this.config_data[key] = Object.assign(this.config_data[key], disk_config_data[key])
+                    })
+        
+                    // If not Windows or Mac OS, and minimize to tray preference not set, force to false
+                    // Else if is Windows or Mac OS, and minimize to tray preference not set, prevent minimize
+                    if (this.config_data.preference.minimize_to_tray === null) {
+                        if (os.platform() !== "win32" && os.platform() !== "darwin") {
+                            this.config_data.preference.minimize_to_tray = false
+                        } else {
+                            this.mainWindow.setMinimizable(false)
+                        }
+                    }
+        
+                    // here we may want to check if config data is valid, if not also send code -1
+                    // i.e. check ports are integers and > 1024, check that data dir path exists, etc
+        
+                    // Filter out http:// from remote_host (remote daemon address)
+                    if (this.config_data.daemon.remote_host.indexOf("//") !== -1) {
+                        let remote_host = this.config_data.daemon.remote_host
+                        remote_host = this.config_data.daemon.remote_host.split("//")
+                        remote_host.shift()
+                        remote_host = remote_host.join("//")
+                        this.config_data.daemon.remote_host = remote_host
+                    }
+        
+                    // save config file back to file, so updated options are stored on disk
+                    fs.writeFileSync(this.config_file, JSON.stringify(this.config_data, null, 4), "utf8")
+        
+                    // get network interfaces for UI
+                    const interfaces = os.networkInterfaces()
+                    let network_interfaces = [{
+                        value: "0.0.0.0",
+                        label: "All interfaces - 0.0.0.0"
+                    }]
+                    for (let k in interfaces) {
+                        for (let k2 in interfaces[k]) {
+                            const address = interfaces[k][k2]
+                            if (address.family === "IPv4" && address.internal) {
+                                network_interfaces.push({
+                                    value: address.address,
+                                    label: `Local machine only - ${address.address}`
+                                })
+                            } else if (address.family === "IPv4" && !address.internal) {
+                                network_interfaces.push({
+                                    value: address.address,
+                                    label: `Local network only - ${address.address}`
+                                })
+                            }
+                        }
+                    }
+        
+                    this.send("set_app_data", {
+                        config: this.config_data,
+                        pending_config: this.config_data,
+                        network_interfaces: network_interfaces,
+                        remotes: [...this.remotes]
+                    })
+        
+                    // Check to see if data dir exists, if not it may have been on network drive
+                    // if not exist, send back to config screen with message so user can select
+                    // new location
+                    if (!fs.existsSync(this.config_data.app.data_dir)) {
+                        this.send("show_notification", { type: "negative", message: "Error: data storge path not found", timeout: 2000 })
+                        this.send("set_app_data", {
+                            status: {
+                                code: -1 // Return to config screen
+                            }
+                        })
+                        return
+                    }
+        
+                    let lmdb_dir = path.join(this.config_data.app.data_dir, "lmdb02")
+                    let log_dir = path.join(this.config_data.app.data_dir, "logs")
+                    let wallet_dir = path.join(this.config_data.app.data_dir, "wallets")
+                    let gui_dir = path.join(this.config_data.app.data_dir, "gui")
+        
+                    if (this.config_data.app.testnet) {
+                        let testnet_dir = path.join(this.config_data.app.data_dir, "testnet")
+                        if (!fs.existsSync(testnet_dir)) { fs.mkdirSync(testnet_dir) }
+        
+                        lmdb_dir = path.join(testnet_dir, "lmdb02")
+                        log_dir = path.join(testnet_dir, "logs")
+                        wallet_dir = path.join(testnet_dir, "wallets")
+                        gui_dir = path.join(testnet_dir, "gui")
+                    }
+        
+                    if (!fs.existsSync(lmdb_dir)) { fs.mkdirSync(lmdb_dir) }
+                    if (!fs.existsSync(log_dir)) { fs.mkdirSync(log_dir) }
+                    if (!fs.existsSync(wallet_dir)) { fs.mkdirSync(wallet_dir) }
+                    if (!fs.existsSync(gui_dir)) { fs.mkdirSync(gui_dir) }
+        
+                    // Check permissions
+                    try {
+                        fs.accessSync(this.config_dir, fs.constants.R_OK | fs.constants.W_OK)
+                        fs.accessSync(path.join(this.config_dir, "gui"), fs.constants.R_OK | fs.constants.W_OK)
+                        fs.accessSync(this.config_file, fs.constants.R_OK | fs.constants.W_OK)
+                        fs.accessSync(lmdb_dir, fs.constants.R_OK | fs.constants.W_OK)
+                        fs.accessSync(log_dir, fs.constants.R_OK | fs.constants.W_OK)
+                        fs.accessSync(wallet_dir, fs.constants.R_OK | fs.constants.W_OK)
+                    } catch (err) {
+                        this.send("show_notification", { type: "negative", message: "Error: data storge path not writable", timeout: 2000 })
+                        this.send("set_app_data", {
+                            status: {
+                                code: -1 // Return to config screen
+                            }
+                        })
+                        return
+                    }
+                    this.daemon = new Daemon(this)
+                    this.walletd = new WalletRPC(this)
+                    if (this.config_data.pool.server.enabled)
+                        this.pool = new Pool(this)
+                    this.market = new Market(this)
+        
                     this.send("set_app_data", {
                         status: {
-                            code: 4,
-                            message: version
+                            code: 3 // Starting daemon
                         }
                     })
-                } else {
+        
+                    this.daemon.checkVersion().then((version) => {
+                        if (version) {
+                            this.send("set_app_data", {
+                                status: {
+                                    code: 4,
+                                    message: version
+                                }
+                            })
+                        } else {
                     // daemon not found, probably removed by AV, set to remote node
                     this.config_data.daemon.type = "remote"
                     this.send("set_app_data", {
@@ -522,108 +510,105 @@ export class Backend {
                 }
 
                 this.market.start(this.config_data)
-                                .then(() => {
-
-                                })
-                                .catch(error => {
-
-                                })
-                this.daemon.checkRemoteDaemon(this.config_data).then((data) => {
-
-                    if(data.hasOwnProperty("error")) {
-                        // error contacting remote daemon
-
-                        if(this.config_data.daemon.type == "local_remote") {
-                            // if in local+remote, then switch to local only
-                            this.config_data.daemon.type = "local"
-                            this.send("set_app_data", {
-                                config: this.config_data,
-                                pending_config: this.config_data
-                            });
-                            this.send("show_notification", {type: "warning", textColor: "black", message: "Warning: remote node not available, using local node", timeout: 2000})
-
-                        } else if(this.config_data.daemon.type == "remote") {
-                            this.send("set_app_data", {
-                                status: {
-                                    code: -1 // Return to config screen
-                                }
-                            })
-                            this.send("show_notification", {type: "negative", message: "Error: remote node not available, change to local mode or update remote node", timeout: 2000})
-                            return
-                        }
-                    } else if(this.config_data.app.testnet && !data.result.testnet) {
-                        // remote node network does not match local network (testnet, mainnet)
-
-                        if(this.config_data.daemon.type == "local_remote") {
-                            // if in local+remote, then switch to local only
-                            this.config_data.daemon.type = "local"
-                            this.send("set_app_data", {
-                                config: this.config_data,
-                                pending_config: this.config_data
-                            })
-                            this.send("show_notification", {type: "warning", textColor: "black", message: "Warning: remote node network does not match, using local node", timeout: 2000})
-
-                        } else if(this.config_data.daemon.type == "remote") {
-                            this.send("set_app_data", {
-                                status: {
-                                    code: -1 // Return to config screen
-                                }
-                            })
-                            this.send("show_notification", {type: "negative", message: "Error: remote node network does not match, change to local mode or update remote node", timeout: 2000})
-                            return
-                        }
-
-                    }
-
-                    this.daemon.start(this.config_data).then(() => {
-
-                        this.send("set_app_data", {
-                            status: {
-                                code: 6 // Starting wallet
-                            }
-                        })
-
-                        this.walletd.start(this.config_data).then(() => {
-
-                            this.send("set_app_data", {
-                                status: {
-                                    code: 7 // Reading wallet list
-                                }
-                            })
-
-                            this.walletd.listWallets(true)
-
-                            this.pool.init(this.config_data)
-                            this.isPoolInitialized = true
-
-                            this.send("set_app_data", {
-                                status: {
-                                    code: 0 // Ready
-                                }
-                            })
-                        }).catch(error => {
-                            this.send("set_app_data", {
-                                status: {
-                                    code: -1 // Return to config screen
-                                }
-                            })
-                        })
-
-                    }).catch(error => {
-                        if(this.config_data.daemon.type == "remote") {
-                            this.send("show_notification", {type: "negative", message: "Remote daemon cannot be reached", timeout: 2000})
-                        } else {
-                            this.send("show_notification", {type: "negative", message: "Local daemon internal error", timeout: 2000})
-                        }
-                        this.send("set_app_data", {
-                            status: {
-                                code: -1 // Return to config screen
-                            }
-                        })
-                    })
+                .then(() => {
+                    
                 })
+                .catch(error => {
+                })
+                this.daemon.checkRemoteDaemon(this.config_data)
+                    .then((data) => {
+                        
+                        if (data.hasOwnProperty("error")) {
+                            // error contacting remote daemon
 
-            }).catch(error => {
+                            if (this.config_data.daemon.type === "local_remote") {
+                                // if in local+remote, then switch to local only
+                                this.config_data.daemon.type = "local"
+                                this.send("set_app_data", {
+                                    config: this.config_data,
+                                    pending_config: this.config_data
+                                })
+                                this.send("show_notification", { type: "warning", textColor: "black", message: "Warning: remote node not available, using local node", timeout: 2000 })
+                            } else if (this.config_data.daemon.type === "remote") {
+                                this.send("set_app_data", {
+                                    status: {
+                                        code: -1 // Return to config screen
+                                    }
+                                })
+                                this.send("show_notification", { type: "negative", message: "Error: remote node not available, change to local mode or update remote node", timeout: 2000 })
+                                return
+                            }
+                        } else if (this.config_data.app.testnet && !data.result.testnet) {
+                            // remote node network does not match local network (testnet, mainnet)
+
+                            if (this.config_data.daemon.type === "local_remote") {
+                                // if in local+remote, then switch to local only
+                                this.config_data.daemon.type = "local"
+                                this.send("set_app_data", {
+                                    config: this.config_data,
+                                    pending_config: this.config_data
+                                })
+                                this.send("show_notification", { type: "warning", textColor: "black", message: "Warning: remote node network does not match, using local node", timeout: 2000 })
+                            } else if (this.config_data.daemon.type === "remote") {
+                                this.send("set_app_data", {
+                                    status: {
+                                        code: -1 // Return to config screen
+                                    }
+                                })
+                                this.send("show_notification", { type: "negative", message: "Error: remote node network does not match, change to local mode or update remote node", timeout: 2000 })
+                                return
+                            }
+                        }
+
+                        this.daemon.start(this.config_data)
+                            .then(() => {
+                                this.send("set_app_data", {
+                                    status: {
+                                        code: 6 // Starting wallet
+                                    }
+                                })
+
+                                this.walletd.start(this.config_data).then(() => {
+                                    this.send("set_app_data", {
+                                        status: {
+                                            code: 7 // Reading wallet list
+                                        }
+                                    })
+
+                                    this.walletd.listWallets(true)
+
+                                    if (this.pool) {
+                                        this.pool.init(this.config_data)
+                                        this.isPoolInitialized = true
+                                    }
+                                    this.send("set_app_data", {
+                                        status: {
+                                            code: 0 // Ready
+                                        }
+                                    })
+                                }).catch(error => {
+                                    this.send("set_app_data", {
+                                        status: {
+                                            code: -1 // Return to config screen
+                                        }
+                                    })
+                                })
+                            })
+                            .catch(error => {
+                                if (this.config_data.daemon.type == "remote") {
+                                    this.send("show_notification", { type: "negative", message: "Remote daemon cannot be reached", timeout: 2000 })
+                                } else {
+                                    this.send("show_notification", { type: "negative", message: "Local daemon internal error", timeout: 2000 })
+                                }
+                                this.send("set_app_data", {
+                                    status: {
+                                        code: -1 // Return to config screen
+                                    }
+                                })
+                            })
+                    })
+            })
+            .catch(error => {
                 this.send("set_app_data", {
                     status: {
                         code: -1 // Return to config screen
@@ -631,64 +616,59 @@ export class Backend {
                 })
             })
             this.market.start(this.config_data)
-                            .then(() => {
-                            })
-                            .catch(error => {
-                            })
+                .then(() => {
+                })
+                .catch(error => {
+                })
         })
     }
 
     getTooltipLabel () {
-
-        if(!this.daemon || !this.walletd) { return "Initializing..." }
+        if (!this.daemon || !this.walletd) { return "Initializing..." }
 
         let daemon_type = this.config_data.daemon.type
         let daemon_info = this.daemon.daemon_info
         let wallet_info = this.walletd.wallet_info
 
-        if(Object.keys(daemon_info).length == 0 || Object.keys(wallet_info).length == 0) { return "Initializing..." }
+        if (Object.keys(daemon_info).length === 0 || Object.keys(wallet_info).length === 0) { return "Initializing..." }
 
         let target_height = 0
-        if(daemon_type === "local" && !daemon_info.is_ready) { target_height = Math.max(daemon_info.height, daemon_info.target_height) } else { target_height = daemon_info.height }
+        if (daemon_type === "local" && !daemon_info.is_ready) { target_height = Math.max(daemon_info.height, daemon_info.target_height) } else { target_height = daemon_info.height }
 
         let daemon_local_pct = 0
-        if(daemon_type !== "remote") {
+        if (daemon_type !== "remote") {
             let d_pct = (100 * daemon_info.height_without_bootstrap / target_height).toFixed(1)
-            if(d_pct == 100.0 && daemon_info.height_without_bootstrap < target_height) { daemon_local_pct = 99.9 } else { daemon_local_pct = d_pct }
+            if (d_pct === 100.0 && daemon_info.height_without_bootstrap < target_height) { daemon_local_pct = 99.9 } else { daemon_local_pct = d_pct }
         }
 
-/*        let daemon_pct = 0
-        if(daemon_type === "local")
-            daemon_pct = daemon_local_pct */
-
-        let wallet_pct  = 0 
+        let wallet_pct = 0
         let w_pct = (100 * wallet_info.height / target_height).toFixed(1)
-        if(w_pct == 100.0 && wallet_info.height < target_height) { wallet_pct = 99.9 } else { wallet_pct = w_pct }
+        if (w_pct === 100.0 && wallet_info.height < target_height) { wallet_pct = 99.9 } else { wallet_pct = w_pct }
 
         let status = ""
 
-        if(daemon_type !== "remote") {
+        if (daemon_type !== "remote") {
             status += `Daemon: ${daemon_info.height_without_bootstrap} / ${target_height} (${daemon_local_pct}%) `
         }
 
-        if(daemon_type !== "local") {
+        if (daemon_type !== "local") {
             status += `Remote: ${daemon_info.height} `
         }
 
         status += `Wallet: ${wallet_info.height} / ${target_height} (${wallet_pct}%) `
 
-        if(daemon_type === "local") {
-            if(daemon_info.height_without_bootstrap < target_height || !daemon_info.is_ready) {
+        if (daemon_type === "local") {
+            if (daemon_info.height_without_bootstrap < target_height || !daemon_info.is_ready) {
                 status += "Syncing..."
-            } else if(wallet_info.height < target_height - 1 && wallet_info.height !== 0) {
+            } else if (wallet_info.height < target_height - 1 && wallet_info.height !== 0) {
                 status += "Scanning..."
             } else {
                 status += "Ready"
             }
         } else {
-            if(wallet_info.height < target_height - 1 && wallet_info.height !== 0) {
+            if (wallet_info.height < target_height - 1 && wallet_info.height !== 0) {
                 status += "Scanning..."
-            } else if(daemon_info.height_without_bootstrap < target_height) {
+            } else if (daemon_info.height_without_bootstrap < target_height) {
                 status += "Syncing..."
             } else {
                 status += "Ready"
@@ -701,10 +681,10 @@ export class Backend {
     quit () {
         return new Promise((resolve, reject) => {
             let process = []
-            if(this.daemon) { process.push(this.daemon.quit()) }
-            if(this.walletd) { process.push(this.walletd.quit()) }
-            if(this.pool) { process.push(this.pool.quit()) }
-            if(this.market) { process.push(this.market.quit()) }
+            if (this.daemon) { process.push(this.daemon.quit()) }
+            if (this.walletd) { process.push(this.walletd.quit()) }
+            if (this.pool) { process.push(this.pool.quit()) }
+            if (this.market) { process.push(this.market.quit()) }
             Promise.all(process).then(() => {
                 resolve()
             })
